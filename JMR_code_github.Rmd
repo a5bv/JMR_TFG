@@ -1,0 +1,2338 @@
+---
+title: " "
+author: "Joan marin Rius"
+date: "19/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Introducció
+Per a una millor execució del codi aquest està dividit en apartats, guardant les corresponents figures taules i dades de manera que cada títol amb un "#" 
+
+
+## Llibreries
+
+```{r}
+library(zoo)
+library(xts)
+library(quantmod)
+library(utils)
+library(ggplot2)
+library(scales)
+library(corrplot)
+library(hrbrthemes)
+library(viridis)
+library(data.table)
+library(e1071) 
+library(ggridges)
+library(xtable)
+library(gridExtra)
+library(Hmisc)
+library(TTR)
+
+```
+
+# Primera part
+
+## Descarreguem les dades
+
+Dades corresponents a les empreses que cotitzaven al Dow Jones Industrial Average al Juny del 2020
+```{r}
+getSymbols("AAPL",from="1999-01-01", to="2020-12-31")
+getSymbols("AXP",from="1999-01-01", to="2020-12-31")
+getSymbols("BA",from="1999-01-01", to="2020-12-31")
+getSymbols("CAT",from="1999-01-01", to="2020-12-31")
+getSymbols("CSCO",from="1999-01-01", to="2020-12-31")
+getSymbols("CVX",from="1999-01-01", to="2020-12-31")
+getSymbols("DIS",from="1999-01-01", to="2020-12-31")
+getSymbols("DOW",from="1999-01-01", to="2020-12-31")
+getSymbols("GS",from="1999-01-01", to="2020-12-31")
+getSymbols("HD",from="1999-01-01", to="2020-12-31")
+getSymbols("IBM",from="1999-01-01", to="2020-12-31")
+getSymbols("INTC",from="1999-01-01", to="2020-12-31")
+getSymbols("JNJ",from="1999-01-01", to="2020-12-31")
+getSymbols("JPM",from="1999-01-01", to="2020-12-31")
+getSymbols("KO",from="1999-01-01", to="2020-12-31")
+getSymbols("MCD",from="1999-01-01", to="2020-12-31")
+getSymbols("MMM",from="1999-01-01", to="2020-12-31")
+getSymbols("MRK",from="1999-01-01", to="2020-12-31")
+getSymbols("MSFT",from="1999-01-01", to="2020-12-31")
+getSymbols("NKE",from="1999-01-01", to="2020-12-31")
+getSymbols("PFE",from="1999-01-01", to="2020-12-31")
+getSymbols("PG",from="1999-01-01", to="2020-12-31")
+getSymbols("RTX",from="1999-01-01", to="2020-12-31")
+getSymbols("TRV",from="1999-01-01", to="2020-12-31")
+getSymbols("UNH",from="1999-01-01", to="2020-12-31")
+getSymbols("V",from="1999-01-01", to="2020-12-31")
+getSymbols("VZ",from="1999-01-01", to="2020-12-31")
+getSymbols("WBA",from="1999-01-01", to="2020-12-31")
+getSymbols("WMT",from="1999-01-01", to="2020-12-31")
+getSymbols("XOM",from="1999-01-01", to="2020-12-31")
+getSymbols("^DJI",from="1999-01-01", to="2020-12-31")
+```
+
+Es comprova que totes les dades descarregades cotitzesin al principi del estudi.
+
+```{r}
+
+time(AAPL[1,])
+time(AXP[1,]) 
+time(BA[1,])
+time(CAT[1,])
+time(CSCO[1,]) 
+time(CVX[1,])
+time(DIS[1,])
+time(DOW[1,])
+time(GS[1,])
+time(HD[1,])
+time(IBM[1,])
+time(INTC[1,])
+time(JNJ[1,])
+time(JPM[1,]) 
+time(KO[1,]) 
+time(MCD[1,])
+time(MMM[1,])
+time(MRK[1,])
+time(MSFT[1,]) 
+time(NKE[1,])
+time(PFE[1,])
+time(PG[1,])
+time(RTX[1,]) 
+time(TRV[1,]) 
+time(UNH[1,]) 
+time(V[1,])
+time(VZ[1,])
+time(WBA[1,])
+time(WMT[1,])
+time(XOM[1,])
+time(DJI[1,])
+```
+Eliminem  les empreses DOW, i V, corresponen a dow chemichal  i visa.
+
+GS goldmand Sahcs comença a cotitzar el 4 de Maig de 1999, mes endavant es realitzaran les correccions necesàries per al càlcul de certs indicadors.
+
+S'ordenen els valors per ordre alfabetic dins de cada sector
+```{r}
+
+data<-list( AAPL, CSCO , IBM , INTC , MSFT , DIS , VZ , JNJ , MRK , UNH , WBA , PFE , AXP , GS , JPM , TRV , BA , CAT , MMM , RTX , CVX , XOM , HD , MCD , NKE , KO , PG , WMT , DJI)
+
+```
+
+```{r}
+# totes les dades utilitzades en aquest estudi estan en aquest list
+data1<-data
+for(i in 1:length(data)){
+  
+  data1[[i]]<-adjustOHLC(data[[i]],use.Adjusted = TRUE)
+}
+
+```
+
+Data1 conté tots els valor ajustats de les cotitzacions de les empreses
+
+```{r}
+
+saveRDS(data1, file="dades.rds")
+
+data1<-readRDS("dades.rds", refhook = NULL)
+
+```
+
+# Segona part
+
+## dades
+
+```{r}
+data1<-readRDS("dades.rds", refhook = NULL)
+```
+
+La visualització de dades i l'analisi de l'evolució al llarg del període només es realitza amb els preus de tancament
+
+
+```{r}
+data_t<-data1[[1]][,4]
+for( i in 2:29 ){
+data_t<-cbind(data_t,data1[[i]][,4])
+}
+
+data_t<-data_t['2000/2020-12-31']
+
+which(is.na(data_t[,]),TRUE)
+
+colnames(data_t)<-gsub(".Close", "", colnames(data_t))
+
+```
+
+Per a la anàlisi les dades es posen en base 1, el primer dia de cotització l'any 2000
+
+
+
+## Dades base 1
+```{r}
+
+data_norm<-data_t[,1]/as.numeric(data_t[1,1])
+
+for ( i in 2:ncol(data_t)){
+  data_norm<-cbind(data_norm,data_t[,i]/as.numeric(data_t[1,i]))
+}
+```
+
+## Dades, rendibilitats logarítmiques i correlacions
+
+```{r}
+
+data_l<-log(data_t)
+
+data_ld<-diff(data_l)[-1]
+
+D_LD<-cor(data_ld)
+#D_LD
+
+```
+
+## Dinamica sectors
+
+Analisi dow jones
+```{r}
+dow_data<-as.data.frame(data_norm[,29])
+time<-rownames(dow_data)
+dow_data_1<-as.data.table(cbind(dow_data,time))
+dow_data_2<-melt(data = dow_data_1, id.vars = c("time"), measure.vars = colnames(dow_data))
+dow_data_2$time<-as.Date(dow_data_2$time)
+colnames(dow_data_2)<-c("Temps","Índex","Vegades")
+dp <- ggplot()
+
+dp<- dp + geom_line(data=dow_data_2  ,  aes(x=Temps, y=Vegades, group=Índex, color=Índex))
+
+dp + scale_y_continuous(trans = 'log2', breaks = trans_breaks("log2", function(x) 2^x))
+ 
+```
+
+### Sector de la informació i tecnologia
+
+
+```{r}
+tec_data<-as.data.frame(data_norm[,c(29,1,2,3,4,5)])
+time<-rownames(tec_data)
+tec_data_1<-as.data.table(cbind(tec_data,time))
+tec_data_2<-melt(data = tec_data_1, id.vars = c("time"), measure.vars = colnames(tec_data))
+tec_data_2$time<-as.Date(tec_data_2$time)
+colnames(tec_data_2)<-c("Temps","Empresa","Vegades")
+dp <- ggplot()
+dp<- dp + geom_line(data=tec_data_2  ,  aes(x=Temps, y=Vegades, group=Empresa, color=Empresa))
+dp + scale_y_continuous(trans = 'log2', breaks = trans_breaks("log2", function(x) 2^x))
+```
+
+
+### Serveis de comunicació
+
+```{r}
+Com_data<-as.data.frame(data_norm[,c(29,6,7)])
+time<-rownames(Com_data)
+Com_data_1<-as.data.table(cbind(Com_data,time))
+Com_data_2<-melt(data = Com_data_1, id.vars = c("time"), measure.vars = colnames(Com_data))
+Com_data_2$time<-as.Date(Com_data_2$time)
+colnames(Com_data_2)<-c("Temps","Empresa","Vegades")
+
+dp <- ggplot()
+
+dp<- dp + geom_line(data=Com_data_2  ,  aes(x=Temps, y=Vegades, group=Empresa, color=Empresa))
+
+dp + scale_y_continuous(trans = 'log2', breaks = trans_breaks("log2", function(x) 2^x))
+```
+
+
+### Salut
+
+```{r}
+Hel_data<-as.data.frame(data_norm[,c(29,8:12)])
+time<-rownames(Hel_data)
+Hel_data_1<-as.data.table(cbind(Hel_data,time))
+Hel_data_2<-melt(data = Hel_data_1, id.vars = c("time"), measure.vars = colnames(Hel_data))
+head(Hel_data_2,n=3)
+Hel_data_2$time<-as.Date(Hel_data_2$time)
+head(Hel_data_2,n=3)
+colnames(Hel_data_2)<-c("Temps","Empresa","Vegades")
+
+dp <- ggplot()
+
+dp<- dp + geom_line(data=Hel_data_2  ,  aes(x=Temps, y=Vegades, group=Empresa, color=Empresa))
+
+dp + scale_y_continuous(trans = 'log2', breaks = trans_breaks("log2", function(x) 2^x)) 
+
+```
+
+
+### Financer
+
+```{r}
+Fin_data<-as.data.frame(data_norm[,c(29,13,14,15,16)])
+time<-rownames(Fin_data)
+Fin_data_1<-as.data.table(cbind(Fin_data,time))
+Fin_data_2<-melt(data = Fin_data_1, id.vars = c("time"), measure.vars = colnames(Fin_data))
+head(Fin_data_2,n=3)
+Fin_data_2$time<-as.Date(Fin_data_2$time)
+head(Fin_data_2,n=3)
+colnames(Fin_data_2)<-c("Temps","Empresa","Vegades")
+
+dp <- ggplot()
+
+dp<- dp + geom_line(data=Fin_data_2  ,  aes(x=Temps, y=Vegades, group=Empresa, color=Empresa))
+
+dp + scale_y_continuous(trans = 'log2', breaks = trans_breaks("log2", function(x) 2^x)) 
+
+```
+
+### Industrial
+
+```{r}
+
+Ind_data<-as.data.frame(data_norm[,c(29,17,18,19,20)])
+time<-rownames(Ind_data)
+Ind_data_1<-as.data.table(cbind(Ind_data,time))
+Ind_data_2<-melt(data = Ind_data_1, id.vars = c("time"), measure.vars = colnames(Ind_data))
+head(Ind_data_2,n=3)
+Ind_data_2$time<-as.Date(Ind_data_2$time)
+head(Ind_data_2,n=3)
+colnames(Ind_data_2)<-c("Temps","Empresa","Vegades")
+
+dp <- ggplot()
+
+dp<- dp + geom_line(data=Ind_data_2  , aes(x=Temps, y=Vegades, group=Empresa, color=Empresa))
+
+dp + scale_y_continuous(trans = 'log2', breaks = trans_breaks("log2", function(x) 2^x)) 
+
+
+
+```
+
+### Energia
+
+```{r}
+
+En_data<-as.data.frame(data_norm[,c(29,21,22)])
+time<-rownames(En_data)
+En_data_1<-as.data.table(cbind(En_data,time))
+En_data_2<-melt(data = En_data_1, id.vars = c("time"), measure.vars = colnames(En_data))
+head(En_data_2,n=3)
+En_data_2$time<-as.Date(En_data_2$time)
+head(En_data_2,n=3)
+colnames(En_data_2)<-c("Temps","Empresa","Vegades")
+
+dp <- ggplot()
+
+dp<- dp + geom_line(data=En_data_2  ,  aes(x=Temps, y=Vegades, group=Empresa, color=Empresa))
+
+dp + scale_y_continuous(trans = 'log2', breaks = trans_breaks("log2", function(x) 2^x)) 
+
+
+```
+
+### Consum Cíclic
+
+```{r}
+
+CC_data<-as.data.frame(data_norm[,c(29,23,24,25)])
+time<-rownames(CC_data)
+CC_data_1<-as.data.table(cbind(CC_data,time))
+CC_data_2<-melt(data = CC_data_1, id.vars = c("time"), measure.vars = colnames(CC_data))
+head(CC_data_2,n=3)
+CC_data_2$time<-as.Date(CC_data_2$time)
+head(CC_data_2,n=3)
+colnames(CC_data_2)<-c("Temps","Empresa","Vegades")
+
+dp <- ggplot()
+
+dp<- dp + geom_line(data=CC_data_2  ,  aes(x=Temps, y=Vegades, group=Empresa, color=Empresa))
+
+dp + scale_y_continuous(trans = 'log2', breaks = trans_breaks("log2", function(x) 2^x)) 
+
+
+```
+
+
+### Consum Defensiu
+
+```{r}
+
+CD_data<-as.data.frame(data_norm[,c(29,26,27,28)])
+time<-rownames(CD_data)
+CD_data_1<-as.data.table(cbind(CD_data,time))
+CD_data_2<-melt(data = CD_data_1, id.vars = c("time"), measure.vars = colnames(CD_data))
+head(CD_data_2,n=3)
+CD_data_2$time<-as.Date(CD_data_2$time)
+head(CD_data_2,n=3)
+colnames(CD_data_2)<-c("Temps","Empresa","Vegades")
+
+dp <- ggplot()
+
+dp<- dp + geom_line(data=CD_data_2  ,  aes(x=Temps, y=Vegades, group=Empresa, color=Empresa))
+
+dp + scale_y_continuous(trans = 'log2', breaks = trans_breaks("log2", function(x) 2^x)) 
+
+```
+
+## Estadístics
+
+```{r}
+#data_ld     rentabilitats logaritmiques entre tancaments
+
+s_data_ld<-data.frame( c ( mean( data_ld[,1]),
+                           median(data_ld[,1]),
+                           sd(data_ld[,1]),
+                           skewness(data_ld[,1],type=1),
+                           kurtosis(data_ld[,1],type=1)
+                           ))
+colnames(s_data_ld)<-colnames(data_ld)[1]
+for(i in 2:ncol(data_ld)){
+  
+  s_data_ld<-cbind(s_data_ld,
+                   c(      mean( data_ld[,i]),
+                           median(data_ld[,i]),
+                           sd(data_ld[,i]),
+                           skewness(data_ld[,i],type=1),
+                           kurtosis(data_ld[,i],type=1)
+                     
+                     )
+)
+    colnames(s_data_ld)[i]<-colnames(data_ld)[i]
+    
+}
+n<-nrow(data_ld)
+s_data_ld<-  t( s_data_ld)
+s_data_ld[,1]<-s_data_ld[,1]*1000
+s_data_ld[,2]<-s_data_ld[,2]*1000
+s_data_ld<-cbind(s_data_ld,(exp(s_data_ld[,1]*n/21000)-1)*100)
+colnames(s_data_ld)<-c( "Mitjana*", "Mediana*"   , "Desviació Típica" , "Asimetria" , "Curtosi" ,"R composta %")
+s_data_ld<-round(s_data_ld,5)
+
+```
+
+```{r}
+saveRDS(s_data_ld, file="estadistics.rds")
+```
+
+## correlacions sectors+
+
+Taules de correlacions sectorials
+
+```{r}
+c_1<-round(D_LD[c(1:5),c(1:5)],3)  #1
+c_2<-round(D_LD[c(6,7),c(6,7)],3)                    #2
+c_3<-round(D_LD[c(8:12),c(8:12)],3)       #3
+c_4<-round(D_LD[c(13:16),c(13:16)],3)          #4
+c_5<-round(D_LD[c(17:20),c(17:20)],3)          #5
+c_6<-round(D_LD[c(21,22),c(21,22)],3)                    #6
+c_7<-round(D_LD[c(23:25),c(23:25)],3)              #7
+c_8<-round(D_LD[c(26:28),c(26:28)],3) 
+
+
+c_1[upper.tri(c_1)]<-""
+c_1<-as.data.frame(c_1)
+saveRDS(c_1, file="c_1.rds")
+
+c_2[upper.tri(c_2)]<-""
+c_2<-as.data.frame(c_2)
+saveRDS(c_2, file="c_2.rds")
+
+c_3[upper.tri(c_3)]<-""
+c_3<-as.data.frame(c_3)
+saveRDS(c_3, file="c_3.rds")
+
+c_4[upper.tri(c_4)]<-""
+c_4<-as.data.frame(c_4)
+saveRDS(c_4, file="c_4.rds")
+
+c_5[upper.tri(c_5)]<-""
+c_5<-as.data.frame(c_5)
+saveRDS(c_5, file="c_5.rds")
+
+c_6[upper.tri(c_6)]<-""
+c_6<-as.data.frame(c_6)
+saveRDS(c_6, file="c_6.rds")
+
+c_7[upper.tri(c_7)]<-""
+c_7<-as.data.frame(c_7)
+saveRDS(c_7, file="c_7.rds")
+
+c_8[upper.tri(c_8)]<-""
+c_8<-as.data.frame(c_8)
+saveRDS(c_8, file="c_8.rds")
+```
+
+## correlació total
+
+Amb la funció corstars es pot veure de manera ràpida que tots els valors de les correlacions són significatius
+ El codi de la funció corstars es troba al final del apartat 2
+```{r}
+corrplot(D_LD, method = "color")
+
+#corstars(data_ld,method=c("pearson"))
+
+```
+
+
+```{r}
+C_DJN<-data.frame(name=colnames(D_LD),value=as.vector(D_LD[,29]))
+C_DJN<-C_DJN[-29,]
+cs<-rep(c("Tec", "Com", "Sal" , "Fin" , "Ind" , "En" , "CC" , "CD"), c(5,2,5,4,4,2,3,3))
+
+C_DJN<-cbind(C_DJN,cs)
+Valors<-reorder(C_DJN$name,C_DJN$value)
+ggplot(data = C_DJN, aes(x=Valors, y=value, fill=cs)) +
+  
+   geom_bar(stat = "identity") +
+  
+  theme(axis.text.x=element_text(angle=45, hjust=1))+
+   scale_fill_manual("Llegenda", values = c("Tec"= "cyan3", "Com" = "skyblue", "Sal" = "steelblue",
+                                           "Fin" = "black", "Ind" = "firebrick2", "En" = "grey",
+                                           "CC" = "navy" , "CD" = "purple"))
+
+
+```
+
+##Var i Cvar
+
+Var
+```{r}
+#data_ld     rentabilitats logaritmiques entre tancaments
+
+Var<-rbind(apply(data_ld,MARGIN = 2,quantile,0.05),
+apply(data_ld,MARGIN = 2,quantile,0.01))
+Var<-as.data.frame(t(Var))
+
+colnames(Var)<-c( "Var5", "Var1")
+Var$valors <- colnames(data_ld)
+CVar<-Var
+for( i in 1:29){
+  CVar[i,1]<-(1-exp(mean(data_ld[,i][data_ld[,i] < Var[i,1]])))*100
+  CVar[i,2]<-(1-exp(mean(data_ld[,i][data_ld[,i] < Var[i,2]])))*100 
+  
+}
+colnames(CVar)<-c( "CVar5", "CVar1","valors")
+
+Var[,1]<-(1-exp(Var[,1]))*100
+Var[,2]<-(1-exp(Var[,2]))*100
+Var<-cbind(Var,c(29:1))
+colnames(Var)[4]<-"ordre"
+CVar<-cbind(CVar,c(29:1))
+colnames(CVar)[4]<-"ordre"
+```
+
+```{r}
+
+ggplot(data= Var ) +
+  geom_segment(  aes(x=reorder(valors, ordre), xend=reorder(valors, ordre), y=Var5, yend =  Var1), color="grey") +
+  geom_point( aes(x=valors, y=Var5), color=rgb(0.2,0.7,0.1,0.5), size=3 ) +
+  geom_point( aes(x=valors, y=Var1), color=rgb(0.7,0.2,0.1,0.5), size=3 ) +
+ coord_flip()+
+theme(
+    legend.position = "none",
+  ) +
+  xlab("Valors") +
+  ylab("Valor en risc %")
+```
+
+```{r}
+
+ggplot(data= CVar ) +
+  geom_segment(  aes(x=reorder(valors, ordre), xend=reorder(valors, ordre), y=CVar5, yend =  CVar1), color="grey") +
+  geom_point( aes(x=valors, y=CVar5), color=rgb(0.2,0.7,0.1,0.5), size=3 ) +
+  geom_point( aes(x=valors, y=CVar1), color=rgb(0.7,0.2,0.1,0.5), size=3 ) +
+ coord_flip()+
+theme(
+    legend.position = "none",
+  ) +
+  xlab("Valors") +
+  ylab("Valor en risc condicional %")
+```
+
+corstars
+
+
+```{r}
+corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper", "lower"),
+                     result=c("none", "html", "latex")){
+    #Compute correlation matrix
+    require(Hmisc)
+    x <- as.matrix(x)
+    correlation_matrix<-rcorr(x, type=method[1])
+    R <- correlation_matrix$r # Matrix of correlation coeficients
+    p <- correlation_matrix$P # Matrix of p-value 
+    
+    ## Define notions for significance levels; spacing is important.
+    mystars <- ifelse(p < .0001, "****", ifelse(p < .001, "*** ", ifelse(p < .01, "**  ", ifelse(p < .05, "*   ", "    "))))
+    
+    ## trunctuate the correlation matrix to two decimal
+    R <- format(round(cbind(rep(-1.11, ncol(x)), R), 2))[,-1]
+    
+    ## build a new matrix that includes the correlations with their apropriate stars
+    Rnew <- matrix(paste(R, mystars, sep=""), ncol=ncol(x))
+    diag(Rnew) <- paste(diag(R), " ", sep="")
+    rownames(Rnew) <- colnames(x)
+    colnames(Rnew) <- paste(colnames(x), "", sep="")
+    
+    ## remove upper triangle of correlation matrix
+    if(removeTriangle[1]=="upper"){
+      Rnew <- as.matrix(Rnew)
+      Rnew[upper.tri(Rnew, diag = TRUE)] <- ""
+      Rnew <- as.data.frame(Rnew)
+    }
+    
+    ## remove lower triangle of correlation matrix
+    else if(removeTriangle[1]=="lower"){
+      Rnew <- as.matrix(Rnew)
+      Rnew[lower.tri(Rnew, diag = TRUE)] <- ""
+      Rnew <- as.data.frame(Rnew)
+    }
+    
+    ## remove last column and return the correlation matrix
+    Rnew <- cbind(Rnew[1:length(Rnew)-1])
+    if (result[1]=="none") return(Rnew)
+    else{
+      if(result[1]=="html") print(xtable(Rnew), type="html")
+      else print(xtable(Rnew), type="latex") 
+    }
+} 
+```
+
+# Tercera part
+
+## dades
+
+```{r}
+data1<-readRDS("dades.rds", refhook = NULL)
+```
+
+```{r}
+r<-diff(log(data1[[1]][,4]))
+r<-r["2001"]
+r_a<-cumsum(r)
+```
+
+
+## Indicador SAR,
+
+```{r}
+Apple_2001<-data1[[1]]["20001229/2001"]
+HL<-cbind(Apple_2001[,2],Apple_2001[,3])
+d_SAR<-SAR(HL, accel = c(0.02,0.2) )
+
+estat_SAR<-d_SAR
+senyal_SAR<-d_SAR
+estat_SAR[d_SAR<=HL[,2]]<-1
+estat_SAR[d_SAR>=HL[,1]]<-0
+senyal_SAR<-diff(estat_SAR)
+table(senyal_SAR)
+
+r_SAR<-cumsum(r*Lag(estat_SAR)["2001"])
+#cbind(estat_SAR,r_SAR,r_a)
+```
+
+```{r}
+
+chartSeries(Apple_2001["2001"],TA=NULL,theme ="white")
+
+addSAR(accel = c(0.02, 0.2), col = "red")
+
+addTA(estat_SAR["2001"])
+addTA(r_a, col="green")
+addTA(r_SAR,on=3, col= "purple")
+```
+
+
+## indicador mms DMAC
+
+```{r}
+#mitjanes movils
+SMA_c<-SMA(data1[[1]][,4]["2000/2001"], n = 10)
+SMA_ll<-SMA(data1[[1]][,4]["2000/2001"], n = 20)
+#DMAC10-20
+estat<-SMA_c-SMA_ll
+estat[estat>0]<-1
+estat[estat<=0]<-0
+DMAC_10_20<-estat
+#DMAC c 20
+estat1<-data1[[1]][,4]["2000/2001"]-SMA_ll
+estat1[estat1>0]<-1
+estat1[estat1<=0]<-0
+DMAC_c_20<-estat1
+#dades
+AAPL_2001<-data1[[1]]["2001"]
+# grafic 1
+chartSeries(AAPL_2001,TA= NULL ,theme ="white")
+addSMA(n = 10, on = 1, with.col = Cl, overlay = TRUE, col = "orange")
+addSMA(n = 20, on = 1, with.col = Cl, overlay = TRUE, col = "purple")
+addTA(DMAC_10_20 )
+addTA(DMAC_c_20)
+```
+
+Taula per saber num de compres i de vendes
+```{r}
+#data grafic1
+#10-20
+senyals10_20<-diff(DMAC_10_20["2001"])
+table(senyals10_20)
+#c 20
+senyals_c_20<-diff(DMAC_c_20["2001"])
+table(senyals_c_20)
+```
+
+acum de rents logs
+```{r}
+# rlog acum
+# r rendibilitats logaritmiques
+#   r_a cumsum(r)
+r_10_20_a<-cumsum(r*Lag(DMAC_10_20)["2001"])
+r_c_20_a<-cumsum(r*(Lag(DMAC_c_20)["2001"]))
+```
+
+gràfic
+```{r}
+#plot(r_a, ylim = c(0,1.5))
+#lines(r_10_20_a,col="blue")
+#lines(r_c_20_a,col="red")
+```
+
+
+```{r}
+chartSeries(AAPL_2001,TA= NULL ,theme ="white")
+addSMA(n = 10, on = 1, with.col = Cl, overlay = TRUE, col = "orange")
+addSMA(n = 20, on = 1, with.col = Cl, overlay = TRUE, col = "purple")
+addTA(ta = r_a, col = "darkgreen", yrange = c(-0.5,0.6))
+addTA(r_10_20_a, on = 2, col = "orange")
+addTA(r_c_20_a, on = 2, col = "purple")
+
+```
+comprovació
+
+```{r}
+
+#View(cbind( AAPL_2001[,4] , r  , r_a , SMA_ll["2001"] , DMAC_c_20["2001"] , r_c_20_a ))    
+```
+
+
+## Indicador mms Direccio
+
+```{r}
+# r rendibilitats
+# r_a acum accions
+# SMA_ll sma llarga
+SMA_ll<-SMA(data1[[1]][,4]["2000/2001"], n = 20)
+d_SMA_ll_20<-diff(SMA_ll)
+d_SMA_ll_20[d_SMA_ll_20>0]<-1
+d_SMA_ll_20[d_SMA_ll_20<=0]<-0
+senyals_p_20<-diff(d_SMA_ll_20["2001"])
+table(senyals_p_20)
+
+r_p_20_a<-cumsum(r*Lag(d_SMA_ll_20)["2001"])
+
+```
+
+
+```{r}
+chartSeries(AAPL_2001,TA= NULL ,theme ="white") # valor
+addSMA(n = 20, on = 1, with.col = Cl, overlay = TRUE, col = "orange") # mms
+addTA(d_SMA_ll_20 )  # quan tinc accions
+addTA(ta = r_a, col = "darkgreen", yrange = c(-0.5,0.6)) # r acumulada benchmark
+addTA(r_p_20_a, on = 3, col = "purple") # r acumulada
+```
+
+## Inici SAR
+
+
+```{r}
+set.seed(123)
+```
+
+```{r}
+data_p<-list()
+for( i in 1:29){
+  data_p[[i]]<-data1[[i]][,c(2,3)]
+  
+}
+```
+
+```{r}
+a<-c()
+for(i in 1:29){
+  for(j in 1:500){
+  v<-sort(sample(1:450,2))
+  d<-SAR(data_p[[i]][v[1]:5000,],accel = c(0.02,0.2)) -   SAR(data_p[[i]][v[2]:5000],accel = c(0.02,0.2))
+
+  a<-c(a,length(d[d!=0]))
+  
+  }
+}
+
+a_1<-c()
+for(i in 1:29){
+  for(j in 1:500){
+  v<-sort(sample(1:450,2))
+  d<-SAR(data_p[[i]][v[1]:5000,],accel = c(0.002,0.002)) -   SAR(data_p[[i]][v[2]:5000],accel = c(0.002,0.002))
+
+  a_1<-c(a_1,length(d[d!=0]))
+  
+  }
+}
+
+a_2<-c()
+for(i in 1:29){
+  for(j in 1:500){
+  v<-sort(sample(1:450,2))
+  d<-SAR(data_p[[i]][v[1]:5000,],accel = c(0.002,0.044)) -   SAR(data_p[[i]][v[2]:5000],accel = c(0.002,0.044))
+
+  a_2<-c(a_2,length(d[d!=0]))
+  
+  }
+}
+
+a_3<-c()
+for(i in 1:29){
+  for(j in 1:500){
+  v<-sort(sample(1:450,2))
+  d<-SAR(data_p[[i]][v[1]:5000,],accel = c(0.04,0.04)) -   SAR(data_p[[i]][v[2]:5000],accel = c(0.04,0.04))
+
+  a_3<-c(a_3,length(d[d!=0]))
+  
+  }
+}
+
+a_4<-c()
+for(i in 1:29){
+  for(j in 1:500){
+  v<-sort(sample(1:450,2))
+  d<-SAR(data_p[[i]][v[1]:5000,],accel = c(0.04,0.88)) -   SAR(data_p[[i]][v[2]:5000],accel = c(0.04,0.88))
+
+  a_4<-c(a_4,length(d[d!=0]))
+  
+  }
+}
+smr<-rbind(summary(a),
+summary(a_1),
+summary(a_2),
+summary(a_3),
+summary(a_4))
+smr<-round(smr,3)
+colnames(smr)<-c("Min","1Q","Mediana","Mitjana","3Q","Max")
+accel<-c(0.02,0.002,0.002,0.04,0.04)
+max_accel<-c(0.2,0.002,0.0044,0.04,0.88)
+smr<-cbind(smr,accel,max_accel)
+saveRDS(smr, file="taula3.rds")
+```
+
+```{r}
+a_1<-c()
+for(i in 1:29){
+  for(j in 1:400){
+  v<-sort(sample(1:450,2))
+  d<-SAR(data_p[[i]][v[1]:5000,],accel = c(0.002,0.002)) -   SAR(data_p[[i]][v[2]:5000],accel = c(0.002,0.002))
+
+  a_1<-c(a_1,length(d[d!=0]))
+  
+  }
+}
+summary(a_1)
+hist(a_1)
+```
+
+# Quarta part
+
+La quarta i cinquena part són codis amb un temps d'execució elevats
+
+## dades
+
+```{r}
+data1<-readRDS("dades.rds", refhook = NULL)
+```
+
+```{r}
+data_t<-data1[[1]][,4]
+data_HL1<-data1
+data_HL1[[1]]<-data_HL1[[1]]["2000/2015",c(2,3)]
+data_HL2<-data1
+data_HL2[[1]]<-data_HL2[[1]]["2016/2020",c(2,3)]
+for( i in 2:29 ){
+data_t<-cbind(data_t,data1[[i]][,4])
+
+data_HL1[[i]]<-data_HL1[[i]]["2000/2015",c(2,3)]
+
+data_HL2[[i]]<-data_HL2[[i]]["2016/2020",c(2,3)]
+}
+
+colnames(data_t)<-gsub(".Close", "", colnames(data_t))
+```
+
+## Mitjanes Movils
+
+```{r}
+data_mms<-list()
+a<-200
+noms<-c( "AAPL"," CSCO "," IBM "," INTC "," MSFT "," DIS "," VZ "," JNJ "," MRK "," UNH "," WBA "," PFE "," AXP "," GS "," JPM "," TRV "," BA "," CAT "," MMM "," RTX "," CVX "," XOM "," HD "," MCD "," NKE "," KO "," PG "," WMT "," DJI")
+for( i in 1:ncol(data_t)){
+  data_mms_t<- xts(data_t[,i])
+  for(j in 2:a){
+
+    data_mms_t<-cbind(data_mms_t,SMA(data_t[,i],n=j))
+    
+   
+    colnames(data_mms_t)[j]<-paste(colnames(data_t)[i],"SMA",j)
+  }
+  print(i)
+  data_mms[[i]]<-data_mms_t
+}
+names(data_mms) <- noms
+```
+
+```{r}
+for( i in 1:length(data_mms)){
+data_mms[[i]]<-data_mms[[i]]["19991231/2020"]
+}
+```
+```{r}
+#lapply(data_mms, function(x) which(is.na(x)))
+```
+
+```{r}
+
+for(i in 170:200){
+  na<-which(is.na(data_mms[[14]][,i])==TRUE)
+  if(length(na)!=0){
+  for(j in 1:max(na)){
+    if(is.na(data_mms[[14]][j,i])==TRUE){
+    data_mms[[14]][j,i]<-data_mms[[14]][j,i-1]
+  }}}
+  
+}
+
+```
+
+```{r}
+saveRDS(data_mms, file="dades_mms.rds")
+```
+
+## Dades SAR
+### SAR1
+```{r}
+
+acc<-seq(from = 0.002, to = 0.04 , by = 0.002)
+w1<-length(acc)  
+w2<-22  
+
+noms<-c( "AAPL"," CSCO "," IBM "," INTC "," MSFT "," DIS "," VZ "," JNJ "," MRK "," UNH "," WBA "," PFE "," AXP "," GS "," JPM "," TRV "," BA "," CAT "," MMM "," RTX "," CVX "," XOM "," HD "," MCD "," NKE "," KO "," PG "," WMT "," DJI")
+
+data_SAR_1<-list()
+
+for( i in 1:length(data_HL1)){
+
+  p<-0
+  for(j in 1:w1){
+    for(k in 1:w2){
+      p<-p+1
+      if(j==1 & k ==1){
+        data_SAR_tmp<-xts(SAR(data_HL1[[i]],accel = c(acc[1],acc[1])))
+  colnames(data_SAR_tmp)[1] <- paste(noms[i] , "SAR" , acc[1] , "_" , 1 )
+      }
+      
+      else{
+      
+      data_SAR_tmp<-cbind(data_SAR_tmp , SAR(data_HL1[[i]] , accel = c( acc[j] , acc[j]*k  )))
+      
+      colnames(data_SAR_tmp)[p] <- paste(noms[i] , "SAR" , acc[j] , "_" , k )
+      }
+      
+    }
+  }
+  data_SAR_1[[i]]<-data_SAR_tmp
+  print(i)
+}
+
+names(data_SAR_1) <- noms
+
+```
+
+```{r}
+saveRDS(data_HL1, file="dades_HL_1.rds")
+saveRDS(data_SAR_1, file="dades_SAR_1.rds")
+```
+
+### SAR2
+
+```{r}
+
+acc<-seq(from = 0.002, to = 0.04 , by = 0.002)
+w1<-length(acc)  
+w2<-22  
+
+noms<-c( "AAPL"," CSCO "," IBM "," INTC "," MSFT "," DIS "," VZ "," JNJ "," MRK "," UNH "," WBA "," PFE "," AXP "," GS "," JPM "," TRV "," BA "," CAT "," MMM "," RTX "," CVX "," XOM "," HD "," MCD "," NKE "," KO "," PG "," WMT "," DJI")
+
+data_SAR_2<-list()
+
+for( i in 1:length(data_HL2)){
+
+  p<-0
+  for(j in 1:w1){
+    for(k in 1:w2){
+      p<-p+1
+      if(j==1 & k ==1){
+        data_SAR_tmp<-xts(SAR(data_HL2[[i]],accel = c(acc[1],acc[1])))
+  colnames(data_SAR_tmp)[1] <- paste(noms[i] , "SAR" , acc[1] , "_" , 1 )
+      }
+      
+      else{
+      
+      data_SAR_tmp<-cbind(data_SAR_tmp , SAR(data_HL2[[i]] , accel = c( acc[j] , acc[j]*k  )))
+      
+      colnames(data_SAR_tmp)[p] <- paste(noms[i] , "SAR" , acc[j] , "_" , k )
+      }
+      
+    }
+  }
+  data_SAR_2[[i]]<-data_SAR_tmp
+  print(i)
+}
+
+names(data_SAR_2) <- noms
+
+```
+
+```{r}
+saveRDS(data_HL2, file="dades_HL_2.rds")
+saveRDS(data_SAR_2, file="dades_SAR_2.rds")
+```
+
+# Cinquena part
+
+## dades
+
+Dades de totes les estrategies, calculades a l'apartat 4
+
+```{r}
+data1<-readRDS("dades.rds", refhook = NULL)
+data_mms<-readRDS("dades_mms.rds", refhook = NULL)
+data_SAR<-readRDS("dades_SAR_1.rds", refhook = NULL)
+data_HL<-readRDS("dades_HL_1.rds", refhook = NULL)
+data_SAR2<-readRDS("dades_SAR_2.rds", refhook = NULL)
+data_HL2<-readRDS("dades_HL_2.rds", refhook = NULL)
+```
+
+```{r}
+data_t<-data1[[1]][,4]
+
+data_mms1<-list()
+data_mms1[[1]]<-data_mms[[1]]["2000/2015"]
+data_mms2<-list()
+data_mms2[[1]]<-data_mms[[1]]["19991231/2015"]
+
+data_mms1_b<-list()
+data_mms1_b[[1]]<-data_mms[[1]]["2016/2020"]
+data_mms2_b<-list()
+data_mms2_b[[1]]<-data_mms[[1]]["20151231/2020"]
+for( i in 2:29 ){
+data_t<-cbind(data_t,data1[[i]][,4])
+data_mms1[[i]]<-data_mms[[i]]["2000/2015"]
+data_mms2[[i]]<-data_mms[[i]]["19991231/2015"]
+
+data_mms1_b[[i]]<-data_mms[[i]]["2016/2020"]
+data_mms2_b[[i]]<-data_mms[[i]]["20151231/2020"]
+}
+
+# rendibilitats continues
+colnames(data_t)<-gsub(".Close", "", colnames(data_t))
+data_t2<-data_t["2016/2020"]
+data_t<-data_t["2000/2015"]
+data_r<-diff(log(data_t))
+data_r2<-diff(log(data_t2))
+```
+
+## Comisio
+```{r}
+#valor comisio mitja degiro
+comisio<- -25.27/10000
+com<-log(comisio+1)
+
+# dies en que existeix rentabilitat
+dies_tot<-length(data_r[,1])-1
+dies_tot2<-length(data_r2[,1])-1
+
+```
+
+
+## DMAC
+
+Parametres
+```{r}
+el<-ncol(data_t) # nombre de diferents valors
+a<-ncol(data_mms1[[1]]) # num de mms1
+llarg<-a #       Periode llarg
+curt<-50  # max peiode curt    
+ik<-3     #minim llarg 
+ik_1<-ik   # minim dif llarg curt
+
+data_DMAC_r <-list()  # rentabilitat de lestrategia
+data_DMAC_rc<-list()  # rent amb comisions
+data_DMAC_d <-list()  # nombre d'operacions per estratègia
+data_DMAC_N <-list()  # dies que es tenen accions per estrategia
+data_DMAC_t <-list()  # ptova t
+data_DMAC_tc<-list()  # prova t despres de comisions
+data_DMAC_p <-list()  # p valor
+data_DMAC_pc<-list()  # p valor comisions
+
+```
+
+
+```{r}
+r_temp <-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+rc_temp<-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+d_temp <-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+N_temp <-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+t_temp <-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+tc_temp<-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+p_temp <-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+pc_temp<-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+
+for(i in 1:el){  
+  r<-data_r[,i]
+  for(j in 1:curt){
+    ik<-2+j
+    mmc<-data_mms1[[i]][,j]
+    
+    for(k in ik:llarg){
+      
+      mmll<-data_mms1[[i]][,k]
+    
+      t_difs_mms<-mmc-mmll
+      
+      t_difs_mms[t_difs_mms>0]<-1
+      t_difs_mms[t_difs_mms<=0]<-0
+      
+      senyal <- diff(t_difs_mms)
+      if(t_difs_mms[1]==1){
+      senyal[1]<-1
+      }else{
+      senyal[1]<-0
+      }
+     t_difs_mms[length(t_difs_mms)]<-0 # l'ultim dia no compta
+      N_temp[j,k]<-sum(t_difs_mms[t_difs_mms==1]) # nombre de dies es tenen accions
+      d_temp[j,k]<-sum(senyal[senyal==1])+abs(sum(senyal[senyal==-1])) # nombre de dies es compra o es ven
+      l_tdm<-Lag(t_difs_mms) 
+      
+      r_temp[j,k] <-sum(r*l_tdm,na.rm = TRUE)
+      rc_temp[j,k]<-r_temp[j,k]+d_temp[j,k]*com
+         
+      rb<-l_tdm[l_tdm==1]*r
+      rs<-(1-l_tdm[l_tdm==0])*r
+    
+      
+   tt<- t.test(rb,rs,alternative = "greater")
+   ttc<-t.test(rb+d_temp[j,k]*com/N_temp[j,k],rs,alternative = "greater")
+    
+    t_temp[j,k]<-tt$statistic
+   p_temp[j,k]<-tt$p.value
+   tc_temp[j,k]<-ttc$statistic
+   pc_temp[j,k]<-ttc$p.value
+   
+    }
+    
+  }
+  ## 1
+  data_DMAC_r[[i]]<-r_temp
+  data_DMAC_rc[[i]]<-rc_temp
+  data_DMAC_d[[i]]<-d_temp
+  data_DMAC_N[[i]]<-N_temp
+  data_DMAC_t[[i]]<-t_temp
+  data_DMAC_tc[[i]]<-tc_temp
+  data_DMAC_p[[i]]<-p_temp
+  data_DMAC_pc[[i]]<-pc_temp
+  print(i)
+  
+  
+}
+```
+
+```{r}
+saveRDS(data_DMAC_r, file="DMAC_r.rds")
+saveRDS(data_DMAC_rc, file="DMAC_rc.rds")
+saveRDS(data_DMAC_d, file="DMAC_d.rds")
+saveRDS(data_DMAC_N, file="DMAC_N.rds")
+saveRDS(data_DMAC_t, file="DMAC_t.rds")
+saveRDS(data_DMAC_tc, file="DMAC_tc.rds")
+saveRDS(data_DMAC_p, file="DMAC_p.rds")
+saveRDS(data_DMAC_pc, file="DMAC_pc.rds")
+```
+
+## Direccio
+
+```{r}
+el<-ncol(data_t) # num columnes valors
+a<-ncol(data_mms1[[1]]) # num mitjanes movils
+o_m<-c()   # oscilador mitjana
+data_dir_r<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t)))
+data_dir_rc<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t)))
+data_dir_d<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t)))
+data_dir_N<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t)))
+data_dir_t<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t)))
+data_dir_tc<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t)))
+data_dir_p<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t)))
+data_dir_pc<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t)))
+```
+
+```{r,warning=F}
+
+for( i in 1:29){# canviar per el
+  
+  r<-(data_r[,i])
+  for(j in 3:a){
+   
+    
+    o_m<-diff(data_mms2[[i]][,j])
+    
+    o_m[1]<-0 # la mms ha de començar un dia abans, i aixo permet que es posi la compra si cal
+    o_m[o_m>0]<-1
+    o_m[o_m<=0]<-0
+    senyal <- diff(o_m)
+     o_m[length(o_m)]<-0 
+     
+    data_dir_N[j,i]<-sum(o_m)
+    data_dir_d[j,i]<-sum(senyal[senyal==1])+abs(sum(senyal[senyal==-1]))
+    o_m<-o_m[-1]
+    l_om<-Lag(o_m)
+    rb<-l_om[l_om==1]*r
+    rs<-(1-l_om[l_om==0])*r
+        data_dir_r[j,i] <- sum(r*l_om,na.rm = TRUE)
+        data_dir_rc[j,i]<-data_dir_r[j,i]+data_dir_d[j,i]*com
+ 
+    
+   tt<-t.test(rb,rs,alternative = "greater")
+      
+    ttc<-t.test(rb+data_dir_d[j,i]*com/data_dir_N[j,i],rs,alternative = "greater")
+    
+    data_dir_t[j,i]<-tt$statistic
+   data_dir_tc[j,i]<-ttc$statistic
+    data_dir_p[j,i]<-tt$p.value
+   data_dir_pc[j,i]<-ttc$p.value
+  }
+  
+}
+
+
+```
+
+```{r}
+saveRDS(data_dir_r, file="dir_r.rds")
+saveRDS(data_dir_rc, file="dir_rc.rds")
+saveRDS(data_dir_d, file="dir_d.rds")
+saveRDS(data_dir_N, file="dir_N.rds")
+saveRDS(data_dir_t, file="dir_t.rds")
+saveRDS(data_dir_tc, file="dir_tc.rds")
+saveRDS(data_dir_p, file="dir_p.rds")
+saveRDS(data_dir_pc, file="dir_pc.rds")
+```
+
+## SAR
+
+```{r}
+data_SAR_r<-list()  
+data_SAR_rc<-list() 
+data_SAR_d<-list()      # data.frame(matrix(NA, nrow = 22, ncol = 20)) 
+data_SAR_N<-list()
+data_SAR_t<-list()
+data_SAR_tc<-list()
+data_SAR_p<-list()
+data_SAR_pc<-list()
+
+```
+
+```{r,warning=FALSE}
+for(i in 1:length(data_SAR)){
+  r<-data_r[,i]
+r_temp<-c()
+rc_temp<-c()
+d_temp<-c()
+N_temp<-c()
+t_temp<-c()
+tc_temp<-c()
+p_temp<-c()
+pc_temp<-c()
+  
+  for( j in 1:ncol(data_SAR[[i]])){
+  estat_SAR<-data_SAR[[i]][,j]
+  estat_SAR[data_SAR[[i]][,j]<=data_HL[[i]][,2]]<-1
+  estat_SAR[data_SAR[[i]][,j]>=data_HL[[i]][,1]]<-0
+  senyal_SAR<-diff(estat_SAR)
+  
+  estat_SAR[length(estat_SAR)]<-0 # la rendibilitat del ultim dia no existeix i aixi no sumara de mes
+  
+  N_temp<-c(N_temp,sum(estat_SAR))
+ 
+  senyal_SAR[1]<-1
+  l_estat<-Lag(estat_SAR)
+  rb<-l_estat[l_estat==1]*r
+  rs<-(1-l_estat[l_estat==0])*r
+  # la part d'acumulació1
+  d_temp<-c(d_temp,sum(senyal_SAR[senyal_SAR==1])+abs(sum(senyal_SAR[senyal_SAR==-1])))
+  r_temp<-c(r_temp,sum(r*Lag(estat_SAR),na.rm = TRUE))
+  rc_temp<-c(rc_temp,r_temp[j]+com*d_temp[j])
+  
+
+   tt<-t.test(rb,rs,alternative = "greater")
+      
+    ttc<-t.test(rb+d_temp[j]*com/N_temp[j],rs,alternative = "greater")
+    
+   t_temp<-c(t_temp, tt$statistic )
+     tc_temp<-c(tc_temp, ttc$statistic )
+    p_temp<-c(p_temp,tt$p.value)
+     pc_temp<-c(pc_temp,ttc$p.value)
+    
+   
+  }
+  # la part d'acumulacio2
+data_SAR_r[[i]]<-data.frame(matrix(r_temp, nrow = 22, ncol = 20)) 
+data_SAR_rc[[i]]<-data.frame(matrix(rc_temp, nrow = 22, ncol = 20)) 
+data_SAR_N[[i]]<-data.frame(matrix(N_temp, nrow = 22, ncol = 20))
+data_SAR_d[[i]]<-data.frame(matrix(d_temp, nrow = 22, ncol = 20))
+data_SAR_t[[i]]<-data.frame(matrix(t_temp, nrow = 22, ncol = 20))
+data_SAR_tc[[i]]<-data.frame(matrix(tc_temp, nrow = 22, ncol = 20))
+data_SAR_p[[i]]<-data.frame(matrix(p_temp, nrow = 22, ncol = 20))
+data_SAR_pc[[i]]<-data.frame(matrix(pc_temp, nrow = 22, ncol = 20))
+print(i)
+}
+```
+
+```{r}
+saveRDS(data_SAR_r, file="SAR_r.rds")
+saveRDS(data_SAR_rc, file="SAR_rc.rds")
+saveRDS(data_SAR_d, file="SAR_d.rds")
+saveRDS(data_SAR_N, file="SAR_N.rds")
+saveRDS(data_SAR_t, file="SAR_t.rds")
+saveRDS(data_SAR_tc, file="SAR_tc.rds")
+saveRDS(data_SAR_p, file="SAR_p.rds")
+saveRDS(data_SAR_pc, file="SAR_pc.rds")
+```
+
+## Backtest
+### DMAC
+
+Parametres
+```{r}
+el<-ncol(data_t2) # nombre de diferents valors
+a<-ncol(data_mms1_b[[1]]) # num de mms1
+llarg<-a #       Periode llarg
+curt<-50  # max peiode curt    
+ik<-3     #minim llarg 
+ik_1<-ik   # minim dif llarg curt
+
+data_DMAC_r2 <-list()  # rentabilitat de lestrategia
+data_DMAC_rc2<-list()  # rent amb comisions
+data_DMAC_d2 <-list()  # nombre d'operacions per estratègia
+data_DMAC_N2 <-list()  # dies que es tenen accions per estrategia
+data_DMAC_t2 <-list()  # ptova t
+data_DMAC_tc2<-list()  # prova t despres de comisions
+data_DMAC_p2 <-list()
+data_DMAC_pc2<-list()
+
+```
+
+```{r,warning=F}
+r_temp <-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+rc_temp<-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+d_temp <-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+N_temp <-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+t_temp <-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+tc_temp<-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+p_temp <-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+pc_temp<-data.frame(matrix(NA, nrow = curt, ncol = llarg))
+
+for(i in 1:el){   
+  r<-data_r2[,i]
+  for(j in 1:curt){
+    ik<-2+j
+    mmc<-data_mms1_b[[i]][,j]
+    
+    for(k in ik:llarg){
+      
+      mmll<-data_mms1_b[[i]][,k]
+    
+      t_difs_mms<-mmc-mmll
+      
+      t_difs_mms[t_difs_mms>0]<-1
+      t_difs_mms[t_difs_mms<=0]<-0
+      
+      senyal <- diff(t_difs_mms)
+      if(t_difs_mms[1]==1){
+      senyal[1]<-1
+      }else{
+      senyal[1]<-0
+      }
+      t_difs_mms[length(t_difs_mms)]<-0 # així si tens accions l'ultim dia no et compta el dia, perque rentabilitat per a l'ultim no n'hi ha.
+      
+      
+      N_temp[j,k]<-sum(t_difs_mms[t_difs_mms==1]) # nombre de dies es tenen accions
+      d_temp[j,k]<-sum(senyal[senyal==1])+abs(sum(senyal[senyal==-1])) # nombre de dies es compra
+      
+      l_tdm<-Lag(t_difs_mms) 
+      
+      r_temp[j,k] <-sum(r*l_tdm,na.rm = TRUE)
+      rc_temp[j,k]<-r_temp[j,k]+d_temp[j,k]*com
+        
+      rb<-l_tdm[l_tdm==1]*r
+      rs<-(1-l_tdm[l_tdm==0])*r
+    
+    tt<- t.test(rb,rs,alternative = "greater")
+   ttc<-t.test(rb+d_temp[j,k]*com/N_temp[j,k],rs,alternative = "greater")
+    
+    t_temp[j,k]<-tt$statistic
+   p_temp[j,k]<-tt$p.value
+   tc_temp[j,k]<-ttc$statistic
+   pc_temp[j,k]<-ttc$p.value
+      
+    }
+  }
+  data_DMAC_r2[[i]]<-r_temp
+  data_DMAC_rc2[[i]]<-rc_temp
+  data_DMAC_d2[[i]]<-d_temp
+  data_DMAC_N2[[i]]<-N_temp
+  data_DMAC_t2[[i]]<-t_temp
+  data_DMAC_tc2[[i]]<-tc_temp
+  data_DMAC_p2[[i]]<-p_temp
+  data_DMAC_pc2[[i]]<-pc_temp
+  print(i)
+ 
+}
+```
+
+```{r}
+saveRDS(data_DMAC_r2, file="DMAC_r2.rds")
+saveRDS(data_DMAC_rc2, file="DMAC_rc2.rds")
+saveRDS(data_DMAC_d2, file="DMAC_d2.rds")
+saveRDS(data_DMAC_N2, file="DMAC_N2.rds")
+saveRDS(data_DMAC_t2, file="DMAC_t2.rds")
+saveRDS(data_DMAC_tc2, file="DMAC_tc2.rds")
+saveRDS(data_DMAC_p2, file="DMAC_p2.rds")
+saveRDS(data_DMAC_pc2, file="DMAC_pc2.rds")
+```
+
+### Direccio
+
+```{r}
+el<-ncol(data_t2) # num columnes valors
+a<-ncol(data_mms1_b[[1]]) # num mitjanes movils
+o_m<-c()   # oscilador mitjana
+data_dir_r2<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t2)))
+data_dir_rc2<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t2)))
+data_dir_d2<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t2)))
+data_dir_N2<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t2)))
+data_dir_t2<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t2)))
+data_dir_tc2<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t2)))
+data_dir_p2<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t2)))
+data_dir_pc2<-data.frame(matrix(NA, nrow = a, ncol = ncol(data_t2)))
+```
+
+```{r,warning=F}
+
+for( i in 1:el){
+  # rentabilitat continua 
+  r<-(data_r2[,i])
+  for(j in 3:a){
+   
+    o_m<-diff(data_mms2_b[[i]][,j])
+    
+    o_m[1]<-0 # la mms ha de començar un dia abans, i aixo permet que es posi la compra si cal
+    o_m[o_m>0]<-1
+    o_m[o_m<=0]<-0
+    senyal <- diff(o_m)
+     o_m[length(o_m)]<-0 
+     
+    data_dir_N2[j,i]<-sum(o_m)
+    data_dir_d2[j,i]<-sum(senyal[senyal==1])+abs(sum(senyal[senyal==-1]))
+    o_m<-o_m[-1]
+    l_om<-Lag(o_m)
+    rb<-l_om[l_om==1]*r
+    rs<-(1-l_om[l_om==0])*r
+        data_dir_r2[j,i] <- sum(r*l_om,na.rm = TRUE)
+        data_dir_rc2[j,i]<-data_dir_r2[j,i]+data_dir_d2[j,i]*com
+        
+        if(length(rb)<=1 || length(rs)<=1){
+          data_dir_t2[j,i]<-NA
+   data_dir_tc2[j,i]<-NA
+   data_dir_p2[j,i]<-NA
+   data_dir_pc2[j,i]<-NA
+   
+        }else{
+        
+    tt<-t.test(rb,rs,alernative = "greater")
+    ttc<-t.test(rb+data_dir_d2[j,i]*com/data_dir_N2[j,i],rs,alternative ="greater")
+    
+   data_dir_t2[j,i]<-tt$statistic
+   data_dir_tc2[j,i]<-ttc$statistic
+   data_dir_p2[j,i]<-tt$p.value
+   data_dir_pc2[j,i]<-ttc$p.value
+        }          
+  }
+  
+}
+
+```
+
+```{r}
+saveRDS(data_dir_r2, file="dir_r2.rds")
+saveRDS(data_dir_rc2, file="dir_rc2.rds")
+saveRDS(data_dir_d2, file="dir_d2.rds")
+saveRDS(data_dir_N2, file="dir_N2.rds")
+saveRDS(data_dir_t2, file="dir_t2.rds")
+saveRDS(data_dir_tc2, file="dir_tc2.rds")
+saveRDS(data_dir_p2, file="dir_p2.rds")
+saveRDS(data_dir_pc2, file="dir_pc2.rds")
+```
+
+### SAR
+
+```{r}
+data_SAR_r2<-list()  
+data_SAR_rc2<-list() 
+data_SAR_d2<-list()      
+data_SAR_N2<-list()
+data_SAR_t2<-list()
+data_SAR_tc2<-list()
+data_SAR_p2<-list()
+data_SAR_pc2<-list()
+
+```
+
+```{r}
+for(i in 1:length(data_SAR2)){
+  r<-data_r2[,i]
+r_temp<-c()
+rc_temp<-c()
+d_temp<-c()
+N_temp<-c()
+t_temp<-c()
+tc_temp<-c()
+p_temp<-c()
+pc_temp<-c()
+  
+  for( j in 1:ncol(data_SAR2[[i]])){
+  estat_SAR<-data_SAR2[[i]][,j]
+  estat_SAR[data_SAR2[[i]][,j]<=data_HL2[[i]][,2]]<-1
+  estat_SAR[data_SAR2[[i]][,j]>=data_HL2[[i]][,1]]<-0
+  senyal_SAR<-diff(estat_SAR)
+  
+  estat_SAR[length(estat_SAR)]<-0 # la rendibilitat del ultim dia no existeix i aixi no sumara de mes
+  
+  N_temp<-c(N_temp,sum(estat_SAR))
+ 
+  senyal_SAR[1]<-1
+  l_estat<-Lag(estat_SAR)
+  rb<-l_estat[l_estat==1]*r
+  rs<-(1-l_estat[l_estat==0])*r
+  # la part d'acumulació1
+  d_temp<-c(d_temp,sum(senyal_SAR[senyal_SAR==1])+abs(sum(senyal_SAR[senyal_SAR==-1])))
+  r_temp<-c(r_temp,sum(r*l_estat,na.rm = TRUE))
+  rc_temp<-c(rc_temp,r_temp[j]+com*d_temp[j])
+  
+  if(length(rb)<=1||length(rs)<=1){
+    t_temp <-c(t_temp, NA )
+    tc_temp<-c(tc_temp,NA)
+    p_temp <-c(p_temp, NA)
+    pc_temp<-c(pc_temp,NA)
+  }else{
+  
+ tt<-t.test(rb,rs,alernative ="greater")
+ ttc<-t.test(rb+d_temp[j]*com/N_temp[j],rs,alternative = "greater")
+ 
+    t_temp <-c(t_temp, tt$statistic )
+    tc_temp<-c(tc_temp,ttc$statistic )
+    p_temp <-c(p_temp, tt$p.value)
+    pc_temp<-c(pc_temp,ttc$p.value)
+  }
+  }
+  # la part d'acumulacio2
+data_SAR_r2[[i]]<-data.frame(matrix(r_temp, nrow = 22, ncol = 20)) 
+data_SAR_rc2[[i]]<-data.frame(matrix(rc_temp, nrow = 22, ncol = 20)) 
+data_SAR_N2[[i]]<-data.frame(matrix(N_temp, nrow = 22, ncol = 20))
+data_SAR_d2[[i]]<-data.frame(matrix(d_temp, nrow = 22, ncol = 20))
+data_SAR_t2[[i]]<-data.frame(matrix(t_temp, nrow = 22, ncol = 20))
+data_SAR_tc2[[i]]<-data.frame(matrix(tc_temp, nrow = 22, ncol = 20))
+data_SAR_p2[[i]]<-data.frame(matrix(pc_temp, nrow = 22, ncol = 20))
+data_SAR_pc2[[i]]<-data.frame(matrix(pc_temp, nrow = 22, ncol = 20))
+print(i)
+}
+```
+
+```{r}
+saveRDS(data_SAR_r2, file="SAR_r2.rds")
+saveRDS(data_SAR_rc2, file="SAR_rc2.rds")
+saveRDS(data_SAR_d2, file="SAR_d2.rds")
+saveRDS(data_SAR_N2, file="SAR_N2.rds")
+saveRDS(data_SAR_t2, file="SAR_t2.rds")
+saveRDS(data_SAR_tc2, file="SAR_tc2.rds")
+saveRDS(data_SAR_p2, file="SAR_p2.rds")
+saveRDS(data_SAR_pc2, file="SAR_pc2.rds")
+```
+
+# Sisena part
+
+## Calcul de les comisions
+
+```{r}
+# està al arxiu de les taules
+#valor comisio mitja degiro
+comisio<- -25.27/10000
+com<-log(comisio+1)
+
+num<-c(1,5,10,50,100,500,1000,2000,5000)
+num1<-num
+taula<-((1+comisio)^num1)*100
+taula1<-(100-taula)
+taula<-round(taula,5)
+taula1<-round(taula1,5)
+
+t1<-rbind(taula,taula1)
+colnames(t1)<-num
+rownames(t1)<-c("Valor%","Comissió%")
+t1
+```
+
+## Analisis dels resultats
+
+### Dades
+
+```{r}
+DMAC_p<-readRDS("DMAC_p.rds", refhook = NULL)
+DMAC_p2<-readRDS("DMAC_p2.rds", refhook = NULL)
+DMAC_pc<-readRDS("DMAC_pc.rds", refhook = NULL)
+DMAC_pc2<-readRDS("DMAC_pc2.rds", refhook = NULL)
+DMAC_t<-readRDS("DMAC_t.rds", refhook = NULL)
+DMAC_t2<-readRDS("DMAC_t2.rds", refhook = NULL)
+DMAC_tc<-readRDS("DMAC_tc.rds", refhook = NULL)
+DMAC_tc2<-readRDS("DMAC_tc2.rds", refhook = NULL)
+DMAC_r<-readRDS("DMAC_r.rds", refhook = NULL)
+DMAC_r2<-readRDS("DMAC_r2.rds", refhook = NULL)
+DMAC_rc<-readRDS("DMAC_rc.rds", refhook = NULL)
+DMAC_rc2<-readRDS("DMAC_rc2.rds", refhook = NULL)
+
+dir_p<-readRDS("dir_p.rds", refhook = NULL)
+dir_p2<-readRDS("dir_p2.rds", refhook = NULL)
+dir_pc<-readRDS("dir_pc.rds", refhook = NULL)
+dir_pc2<-readRDS("dir_pc2.rds", refhook = NULL)
+dir_t<-readRDS("dir_t.rds", refhook = NULL)
+dir_t2<-readRDS("dir_t2.rds", refhook = NULL)
+dir_tc<-readRDS("dir_tc.rds", refhook = NULL)
+dir_tc2<-readRDS("dir_tc2.rds", refhook = NULL)
+dir_r<-readRDS("dir_r.rds", refhook = NULL)
+dir_r2<-readRDS("dir_r2.rds", refhook = NULL)
+dir_rc<-readRDS("dir_rc.rds", refhook = NULL)
+dir_rc2<-readRDS("dir_rc2.rds", refhook = NULL)
+
+SAR_p<-readRDS("SAR_p.rds", refhook = NULL)
+SAR_p2<-readRDS("SAR_p2.rds", refhook = NULL)
+SAR_pc<-readRDS("SAR_pc.rds", refhook = NULL)
+SAR_pc2<-readRDS("SAR_pc2.rds", refhook = NULL)
+SAR_t<-readRDS("SAR_t.rds", refhook = NULL)
+SAR_t2<-readRDS("SAR_t2.rds", refhook = NULL)
+SAR_tc<-readRDS("SAR_tc.rds", refhook = NULL)
+SAR_tc2<-readRDS("SAR_tc2.rds", refhook = NULL)
+SAR_r<-readRDS("SAR_r.rds", refhook = NULL)
+SAR_r2<-readRDS("SAR_r2.rds", refhook = NULL)
+SAR_rc<-readRDS("SAR_rc.rds", refhook = NULL)
+SAR_rc2<-readRDS("SAR_rc2.rds", refhook = NULL)
+
+res_DMAC<-list(DMAC_t, DMAC_p , DMAC_t2 , DMAC_p2 , DMAC_tc , DMAC_pc , DMAC_tc2 , DMAC_pc2 , DMAC_r , DMAC_r2 , DMAC_rc , DMAC_rc2)
+res_dir<-list(dir_t, dir_p , dir_t2 , dir_p2 , dir_tc , dir_pc , dir_tc2 , dir_pc2 , dir_r , dir_r2 , dir_rc , dir_rc2)
+res_SAR<-list(SAR_t, SAR_p , SAR_t2 , SAR_p2 , SAR_tc , SAR_pc , SAR_tc2 , SAR_pc2 , SAR_r , SAR_r2 , SAR_rc , SAR_rc2)
+```
+
+```{r}
+noms<-c("AAPL"," CSCO "," IBM "," INTC "," MSFT "," DIS "," VZ "," JNJ "," MRK "," UNH "," WBA "," PFE "," AXP "," GS "," JPM "," TRV "," BA "," CAT "," MMM "," RTX "," CVX "," XOM "," HD "," MCD "," NKE "," KO "," PG "," WMT "," DJI")
+cnoms<-c("t","p","t2","p2","tc","pc","tc2","pc2","r","r2","rc","rc2")
+```
+
+## taules max
+
+```{r}
+cot<-readRDS("dades.rds", refhook = NULL)
+```
+
+```{r}
+t_v<-data.frame()
+
+dies<-c("20000103","20151231","20160104","20201230")
+for(i in 1:29){
+  for(j in 1:4){
+    t_v[j,i]<-cot[[i]][dies[j],4]
+  }
+  
+}
+colnames(t_v)<-noms
+t_v
+```
+
+```{r}
+tr_v<-data.frame()
+for(i in 1:29){
+  tr_v[1,i]<-log(t_v[2,i]/t_v[1,i])
+  tr_v[2,i]<-log(t_v[4,i]/t_v[3,i])  
+}
+colnames(tr_v)<-noms
+# rendibilitats logarítmiques dels dos períodes amb un dia de perdua
+tr_v
+```
+
+## Taules primera hipòtesis
+
+DMAC
+```{r}
+
+resDMAC<-matrix(data=NA,nrow=1,ncol=15)
+cnoms1<-c(cnoms,"llarg","curt","Rang rel")
+colnames(resDMAC)<-cnoms1
+
+for(i in 1:29){
+  millors<-length(which(DMAC_tc[[i]]==max(DMAC_tc[[i]],na.rm=TRUE)))
+  if(millors==1){
+    nu<-which(as.matrix(DMAC_tc[[i]])==max(as.matrix(DMAC_tc[[i]]),na.rm=T))
+    temp<-as.matrix(DMAC_t[[i]])[nu]
+    for(k in 2:12){
+      temp<-c(temp,as.matrix(res_DMAC[[k]][[i]])[nu])
+    }
+    lla<-nu%/%50+1
+    cu<-nu%%50
+    if(cu==0){
+      lla<-lla-1
+      cu<-cu+50
+    }
+    #posició relativa
+    len<-sum(1-is.na(DMAC_tc2[[i]]))
+     rang_temp<-  frank(-unlist(DMAC_tc2[[i]]),na.last = "keep",ties.method="average")
+     rt<-(rang_temp[nu]-1)/(len-1)
+    temp<-c(temp,lla ,cu,rt )
+    resDMAC<-rbind(resDMAC,temp)
+    rownames(resDMAC)[nrow(resDMAC)]<-noms[i]
+  }
+  
+  if(millors>1){
+    nu<-which(as.matrix(DMAC_tc[[i]])==max(as.matrix(DMAC_tc[[i]]),na.rm=T))
+    for(j in 1:length(nu)){
+      temp<-as.matrix(DMAC_t[[i]])[nu][j]
+      for(k in 2:12){
+        
+      temp<-c(temp,as.matrix(res_DMAC[[k]][[i]])[nu][j])
+      }
+      lla<-nu[j]%/%50+1
+      cu<-nu[j]%%50
+      if(cu==0){
+      lla<-lla-1
+      cu<-cu+50
+      }
+      len<-sum(1-is.na(DMAC_tc2[[i]]))
+      #posició relativa
+     rang_temp<-  frank(-unlist(DMAC_tc2[[i]]),na.last = "keep",ties.method="average")
+     
+     rt<-(rang_temp[nu][j]-1)/(len-1)
+    temp<-c(temp,lla ,cu,rt )
+    resDMAC<-rbind(resDMAC,temp)
+    rownames(resDMAC)[nrow(resDMAC)]<-noms[i]
+    }
+  }
+  
+}
+resDMAC<- resDMAC[-1,]
+resDMAC
+```
+
+MAX
+```{r}
+resDMAC_m<-cbind(resDMAC,t(tr_v[1,]),t(tr_v[2,]))
+colnames(resDMAC_m)[ncol(resDMAC_m)-1]<-"r*"
+colnames(resDMAC_m)[ncol(resDMAC_m)]<-"r2*"
+# taula amb 4 xifres
+resDMAC_m<-round(resDMAC_m,3)
+
+resDMAC_m
+saveRDS(resDMAC_m, file="H1_DMAC.rds")
+```
+
+Direcció 
+
+```{r}
+resdir<-matrix(data=NA,nrow=1,ncol=14)
+cnoms2<-c(cnoms,"mms","Rang rel")
+colnames(resdir)<-cnoms2
+
+for(i in 1:29){
+  millors<-length(which(dir_tc[,i]==max(dir_tc[,i],na.rm=TRUE)))
+  if(millors==1){
+    nu<-which(as.matrix(dir_tc[,i])==max(as.matrix(dir_tc[,i]),na.rm=T))
+    temp<-as.matrix(dir_t[,i])[nu]
+    for(k in 2:12){
+      temp<-c(temp,as.matrix(res_dir[[k]][,i])[nu])
+    }
+#posició relativa
+    len<-sum(1-is.na(dir_tc[,i]))
+     rang_temp<-  frank(-dir_tc2[,i],na.last = "keep",ties.method="average")
+    
+      rt<-(rang_temp[nu]-1)/(len-1)
+     
+    temp<-c(temp,nu,rt )
+    resdir<-rbind(resdir,temp)
+    rownames(resdir)[nrow(resdir)]<-noms[i]
+  }
+  
+  if(millors>1){
+    nu<-which(as.matrix(dir_tc[,i])==max(as.matrix(dir_tc[,i]),na.rm=T))
+    for(j in 1:length(nu)){
+      temp<-as.matrix(dir_t[,i])[nu][j]
+      for(k in 2:12){
+      temp<-c(temp,as.matrix(res_dir[[k]][,i])[nu][j])
+      }
+      #posició relativa
+    len<-sum(1-is.na(dir_tc[,i]))
+     rang_temp<-  frank(-dir_tc2[,i],na.last = "keep",ties.method="average")
+    
+     rt<-(rang_temp[nu][j]-1)/(len-1)
+     
+    temp<-c(temp,nu,rt )
+    resDMAC<-rbind(resdir,temp)
+    rownames(resdir)[nrow(resdir)]<-noms[i]
+    }
+  }
+  
+}
+ resdir<-resdir[-1,]
+ resdir
+```
+dir max
+```{r}
+resdir_m<-cbind(resdir,t(tr_v[1,]),t(tr_v[2,]))
+colnames(resdir_m)[ncol(resdir_m)-1]<-"r*"
+colnames(resdir_m)[ncol(resdir_m)]<-"r2*"
+
+resdir_m<-round(resdir_m,3)
+
+resdir_m
+saveRDS(resdir_m, file="H1_dir.rds")
+```
+
+SAR
+
+```{r}
+resSAR<-matrix(data=NA,nrow=1,ncol=15)
+cnoms3<-c(cnoms,"accel","Vegades","Rang rel")
+colnames(resSAR)<-cnoms3
+
+for(i in 1:29){
+  millors<-length(which(SAR_tc[[i]]==max(SAR_tc[[i]],na.rm=TRUE)))
+  if(millors==1){
+    nu<-which(as.matrix(SAR_tc[[i]])==max(as.matrix(SAR_tc[[i]]),na.rm=T))
+    temp<-as.matrix(SAR_t[[i]])[nu]
+    for(k in 2:12){
+      temp<-c(temp,as.matrix(res_SAR[[k]][[i]])[nu])
+    }
+    acc<-(nu%/%22+1)*0.002
+    V <-nu%%22
+    if(V==0){
+      acc<-acc-0.002
+      V<-V+22
+    }
+        #posició relativa
+    len<-sum(1-is.na(SAR_tc[[i]]))
+     rang_temp<-  frank(-unlist(SAR_tc2[[i]]),na.last = "keep",ties.method="average")
+  
+      rt<-(rang_temp[nu]-1)/(len-1)
+  
+    temp<-c(temp,acc ,V,rt )
+    resSAR<-rbind(resSAR,temp)
+    rownames(resSAR)[nrow(resSAR)]<-noms[i]
+  }
+  
+  if(millors>1){
+    nu<-which(as.matrix(SAR_tc[[i]])==max(as.matrix(SAR_tc[[i]]),na.rm=T))
+    for(j in 1:length(nu)){
+      temp<-as.matrix(SAR_t[[i]])[nu][j]
+      for(k in 2:12){
+      temp<-c(temp,as.matrix(res_SAR[[k]][[i]])[nu][j])
+      }
+      acc<-(nu[j]%/%22+1)*0.002
+      V<-nu[j]%%22
+      if(V==0){
+      acc<-acc-0.002
+      V<-V+22
+      }
+             #posició relativa
+    len<-sum(1-is.na(SAR_tc[[i]]))
+     rang_temp<-  frank(-unlist(SAR_tc2[[i]]),na.last = "keep",ties.method="average")
+    
+  rt<-(rang_temp[nu][j]-1)/(len-1)
+    temp<-c(temp,acc ,V,rt )
+    resSAR<-rbind(resSAR,temp)
+    rownames(resSAR)[nrow(resSAR)]<-noms[i]
+    }
+  }
+  
+}
+
+resSAR<-resSAR[-1,]
+ resSAR
+ 
+```
+Taula del SAR sense empats no significatius
+```{r}
+nn<-c()
+for(i in 2:nrow(resSAR)){
+  if(resSAR[i,3]==resSAR[i-1,3]){
+    nn<-c(nn,i)
+  }
+}
+nn
+rep_SAR<-resSAR[nn,]
+rep_SAR<-rep_SAR[,13:14]
+red_resSAR<-resSAR[-nn,]
+rep_SAR
+red_resSAR
+```
+taula max
+```{r}
+resSAR_m<-cbind(red_resSAR,t(tr_v[1,]),t(tr_v[2,]))
+colnames(resSAR_m)[ncol(resSAR_m)-1]<-"r*"
+colnames(resSAR_m)[ncol(resSAR_m)]<-"r2*"
+resSAR_m<-round(resSAR_m,3)
+saveRDS(resSAR_m, file="H1_SAR.rds")
+saveRDS(rep_SAR, file="H1_SAR_reps.rds")
+```
+
+## Segona hipotesis
+
+```{r}
+H2<-function(DMAC,dir){
+sup<-0
+inf<-0
+em<-0
+for(i in 1:ncol(dir)){
+  for(j in 3:nrow(dir)){
+    if(is.na(dir[j,i])==FALSE){
+    d<-median(DMAC[[i]][,j],na.rm =TRUE)-dir[j,i]
+    
+    if(d>0){
+      sup<-sup+1
+    }
+    if(d==0){
+      em<-em+1
+    }
+    if(d<0){
+      inf<-inf+1
+    }
+    }
+  }
+}
+return(c(sup,em,inf))
+}
+```
+
+```{r}
+H2_p1<-H2(DMAC_tc,dir_tc)
+H2_p2<-H2(DMAC_tc2,dir_tc2)
+t_H2<-rbind(H2_p1,H2_p2)
+t_H2_b<-pbinom(t_H2[1,1],size=sum(t_H2[1,]),prob=0.5,lower.tail = TRUE)
+t_H2_b2<-pbinom(t_H2[2,1],size=sum(t_H2[2,]),prob=0.5,lower.tail = TRUE)
+taula_H2<-cbind(t_H2,c(t_H2_b,t_H2_b2))
+colnames(taula_H2)<-c("DMAC_s","Igual","dir_s","p-valor")
+```
+
+
+```{r}
+saveRDS(taula_H2, file="H2.rds")
+```
+
+```{r}
+## posar en el codi només
+dir_d<-readRDS("dir_d.rds", refhook = NULL)
+DMAC_d<-readRDS("DMAC_d.rds", refhook = NULL)
+H2(DMAC_d,dir_d)
+dir_d2<-readRDS("dir_d2.rds", refhook = NULL)
+DMAC_d2<-readRDS("DMAC_d2.rds", refhook = NULL)
+H2(DMAC_d2,dir_d2)
+```
+
+## tercera hipotesis
+DMAC
+```{r}
+
+curt<-c(1,5,10,20)
+llarg<-c(50,100,150,200)
+
+#                    DMAC_tc
+t_H3<-data.frame()
+rown<-1
+
+for(i in 1:length(curt)){
+  for(j in 1:length(llarg)){
+    
+    t_H3[rown,1]<-curt[i]
+    t_H3[rown,2]<-llarg[j]
+    t_H3[rown,3]<-0
+    t_H3[rown,4]<-0
+    t_H3[rown,5]<-0
+    for(k in 1:29){
+      A<-DMAC_tc[[k]]
+      A[curt[i],llarg[j]]<-NA
+      mtemp<-median(as.vector(unlist(A)),na.rm = TRUE)
+      if(DMAC_tc[[k]][curt[i],llarg[j]] > mtemp){
+        t_H3[rown,3]<-t_H3[rown,3]+1
+      }
+      if(DMAC_tc[[k]][curt[i],llarg[j]] == mtemp){
+        t_H3[rown,4]<-t_H3[rown,4]+1
+      }
+      if(DMAC_tc[[k]][curt[i],llarg[j]] < mtemp){
+        t_H3[rown,5]<-t_H3[rown,5]+1
+      }
+      
+    }
+    
+    rown<-rown+1
+  }
+}
+for(i in 1:nrow(t_H3)){
+  t_H3[i,6]<-pbinom(t_H3[i,5],size=29,prob=0.5,lower.tail = TRUE)
+  t_H3[i,6]<-signif(t_H3[i,6],4)
+}
+colnames(t_H3)<-c("Curt","Llarg","Superior","igual","inferior","P_valor")
+
+t_H3
+# el p-valor correspona a la prob del trobat o un valor superior
+```
+
+tercera hipotesis
+SAR
+
+```{r}
+t_H3_SAR<-data.frame()
+t_H3_SAR[1,1]<-0.02
+t_H3_SAR[1,2]<-0.2
+t_H3_SAR[1,3]<-0
+t_H3_SAR[1,4]<-0
+t_H3_SAR[1,5]<-0
+
+for(i in 1:29){
+  A<-SAR_tc[[i]]
+  A[10,10]<-NA
+  mtemp<-median(as.vector(unlist(A)),na.rm = TRUE)
+      if(SAR_tc[[i]][10,10] > mtemp){
+        t_H3_SAR[1,3]<-t_H3_SAR[1,3]+1
+      }
+      if(SAR_tc[[i]][10,10] == mtemp){
+        t_H3_SAR[1,4]<-t_H3_SAR[1,4]+1
+      }
+      if(SAR_tc[[i]][10,10] < mtemp){
+       t_H3_SAR[1,5]<-t_H3_SAR[1,5]+1
+      }
+}
+
+ t_H3_SAR[1,6]<-pbinom(t_H3_SAR[1,5],size=26,prob=0.5,lower.tail = TRUE)
+  t_H3_SAR[1,6]<-signif(t_H3_SAR[1,6],4)
+  colnames(t_H3_SAR)<-c("Accel","Vegades","Superior","igual","inferior","P_valor")
+  t_H3_SAR
+```
+
+```{r}
+t_H3
+t_H3_SAR
+saveRDS(t_H3, file="H3_DMAC.rds")
+saveRDS(t_H3_SAR, file="H3_SAR.rds")
+```
+
+## 4a hipotesis
+
+```{r}
+H4<-data.frame()
+for(i in 1:29){
+  H4[i,1]<-noms[i]
+  #DMAC
+  H4[i,2]<-cor.test(unlist( DMAC_tc[[i]]) , unlist(DMAC_tc2[[i]]) , use = "complete.obs" , method = "s")$estimate
+  H4[i,3]<-cor.test(unlist( DMAC_tc[[i]]) , unlist(DMAC_tc2[[i]]) , use = "complete.obs" , method = "s")$p.value
+  #dir
+    H4[i,4]<-cor.test(unlist(dir_tc[,i]),unlist(dir_tc2[,i]),use = "complete.obs",method = "s")$estimate
+  H4[i,5]<-cor.test(unlist(dir_tc[,i]),unlist(dir_tc2[,i]),use = "complete.obs",method = "s")$p.value
+  #SAR
+    H4[i,6]<-cor.test(unlist(SAR_tc[[i]]),unlist(SAR_tc2[[i]]),use = "complete.obs",method = "s")$estimate
+  H4[i,7]<-cor.test(unlist(SAR_tc[[i]]),unlist(SAR_tc2[[i]]),use = "complete.obs",method = "s")$p.value
+}
+H4[,c(3,5,7)]<-signif(H4[,c(3,5,7)],digits = 3)
+H4[,c(2,4,6)]<-round(H4[,c(2,4,6)],3)
+colnames(H4)<-c("Empresa","Rho DMAC","p-value","Rho dir","p-value","Rho SAR","p-value")
+H4
+```
+
+```{r}
+# p-valor limit
+lim<-0.05/87
+```
+
+```{r}
+saveRDS(H4, file="H4.rds")
+```
+
+## analisi moviments i comisions
+
+```{r}
+
+library(ggplot2)
+library(data.table)
+library(scales)
+library(viridis)
+
+```
+
+### MMS
+#### Per files
+
+```{r}
+#RM row means
+
+RM_DMAC_r<-rowMeans(DMAC_r[[1]],na.rm = TRUE, dims = 1)
+for(i in 2:29){
+  RM_DMAC_r<-cbind(RM_DMAC_r,rowMeans(DMAC_r[[i]],na.rm = TRUE))
+}
+RM_DMAC_rc<-rowMeans(DMAC_rc[[1]],na.rm = TRUE, dims = 1)
+for(i in 2:29){
+  RM_DMAC_rc<-cbind(RM_DMAC_rc,rowMeans(DMAC_rc[[i]],na.rm = TRUE))
+}
+# cada columna una empresa cada fila representa la mms curta
+RM_DMAC_rent<-RM_DMAC_rc-RM_DMAC_r
+RM_DMAC_rent<-1-exp(RM_DMAC_rent)
+```
+
+```{r}
+colnames(RM_DMAC_rent)<-nom
+MM_Curta<-c(1:50)
+RM_DMAC_rent<-as.data.table(cbind(RM_DMAC_rent,MM_Curta))
+
+RM_DMAC_rent2<-melt(data = RM_DMAC_rent,id.vars=c("MM_Curta"), measure.vars = noms)
+colnames(RM_DMAC_rent2)<-c("MM_Curta","Empresa","Comissions")
+
+dp <- ggplot()
+
+dp<- dp + geom_line(data=RM_DMAC_rent2  ,  aes(x=MM_Curta, y=Comissions, group=Empresa, color=Empresa))
+dp
+```
+
+analisi gràfic
+
+```{r}
+# es pot fer així directe a partir de la observacio del grafic
+which.min(RM_DMAC_rent[50,1:29])
+which.max(RM_DMAC_rent[50,1:29])
+RM_DMAC_rent[,28]/RM_DMAC_rent[,1]
+```
+#### per columnes
+
+```{r}
+
+CM_DMAC_r<-colMeans(DMAC_r[[1]],na.rm = TRUE, dims = 1)
+for(i in 2:29){
+  CM_DMAC_r<-cbind(CM_DMAC_r,colMeans(DMAC_r[[i]],na.rm = TRUE))
+}
+CM_DMAC_rc<-colMeans(DMAC_rc[[1]],na.rm = TRUE, dims = 1)
+for(i in 2:29){
+  CM_DMAC_rc<-cbind(CM_DMAC_rc,colMeans(DMAC_rc[[i]],na.rm = TRUE))
+}
+
+CM_DMAC_rent<-CM_DMAC_rc-CM_DMAC_r
+CM_DMAC_rent<-CM_DMAC_rent[-c(1,2),]
+CM_DMAC_rent<-1-exp(CM_DMAC_rent)
+```
+
+```{r}
+colnames(CM_DMAC_rent)<-noms
+MM_Llarga<-c(3:200)
+CM_DMAC_rent<-as.data.table(cbind(CM_DMAC_rent,MM_Llarga))
+
+CM_DMAC_rent2<-melt(data = CM_DMAC_rent ,id.vars="MM_Llarga", measure.vars = noms)
+colnames(CM_DMAC_rent2)<-c("MM_Llarga","Empresa","Comissions")
+
+dp <- ggplot()
+
+dp<- dp + geom_line(data=CM_DMAC_rent2  ,  aes(x=MM_Llarga, y=Comissions, group=Empresa, color=Empresa))
+
+dp
+```
+
+```{r}
+which.min(CM_DMAC_rent[198,1:29])
+which.max(CM_DMAC_rent[198,1:29])
+CM_DMAC_rent[,28]/CM_DMAC_rent[,1]
+```
+
+#### Per valor
+
+```{r}
+VM_DMAC_r<-c()
+VM_DMAC_rc<-c()
+for(i in 1:nrow(DMAC_r[[1]])){
+for( j in 1:ncol(DMAC_r[[1]])){
+  
+    m<-c()
+    mc<-c()
+    for(k in 1:length(DMAC_r)){
+    m<-c(m,DMAC_r[[k]][i,j])
+    mc<-c(mc,DMAC_rc[[k]][i,j])
+    }
+    VM_DMAC_r<-c( VM_DMAC_r,mean(m,na.rm = TRUE))
+    VM_DMAC_rc<-c( VM_DMAC_rc,mean(mc,na.rm = TRUE))
+    if(VM_DMAC_r[length(VM_DMAC_r)]=="NaN"){
+      VM_DMAC_r[length(VM_DMAC_r)]<-NA
+    }
+    if(VM_DMAC_rc[length(VM_DMAC_rc)]=="NaN"){
+      VM_DMAC_rc[length(VM_DMAC_rc)]<-NA
+    }
+      
+    }
+  }
+VM_DMAC_rent<-VM_DMAC_rc-VM_DMAC_r
+VM_DMAC_rent<-1-exp(VM_DMAC_rent)
+```
+
+```{r}
+# si canvio el -log pel valor percentual pot funcionar
+data_VMDMAC <- expand.grid( X=c(1:200),Y=c(1:50))
+data_VMDMAC$a <-VM_DMAC_rent
+colnames(data_VMDMAC)<-c("MM_Llarga","MM_Curta","Comissions")
+ggplot(data_VMDMAC, aes(x=MM_Llarga, y=MM_Curta, fill=Comissions )) + 
+  geom_tile()+
+  
+   scale_fill_viridis(discrete=FALSE,option = "C") +
+   scale_y_reverse()
+
+```
+
+### dir
+
+```{r}
+dir_r1<-dir_r[-c(1,2),]
+dir_rc1<-dir_rc[-c(1,2),]
+dir_rent<-dir_rc1-dir_r1
+colnames(dir_rent)<-noms
+dir_rent<-1-exp(dir_rent)
+```
+
+```{r}
+L<-c(3:200)
+D_dir_r<-as.data.table(cbind(dir_rent,L))
+
+CM_DMAC_d2<-melt(data = D_dir_r,id.vars=c("L"), measure.vars = colnames(dir_rent))
+colnames(CM_DMAC_d2)<-c("MMs","Empresa","Comissions")
+
+dp <- ggplot()
+
+dp<- dp + geom_line(data=CM_DMAC_d2  ,  aes(x=MMs, y=Comissions, group=Empresa, color=Empresa))
+# a partir d'aqui no funciona
+dp + scale_y_continuous(trans = 'log2', breaks = trans_breaks("log2", function(x) 2^x))
+```
+
+### SAR
+
+#### Per files
+
+```{r}
+
+RM_SAR_r<-rowMeans(SAR_r[[1]], dims = 1)
+for(i in 2:29){
+  RM_SAR_r<-cbind(RM_SAR_r,rowMeans(SAR_r[[i]]))
+}
+
+RM_SAR_rc<-rowMeans(SAR_rc[[1]], dims = 1)
+for(i in 2:29){
+  RM_SAR_rc<-cbind(RM_SAR_rc,rowMeans(SAR_rc[[i]]))
+}
+
+RM_SAR_rent<-RM_SAR_rc-RM_SAR_r
+RM_SAR_rent<-1-exp(RM_SAR_rent)
+```
+
+```{r}
+ #RM_SAR_d
+colnames(RM_SAR_rent)<-noms
+RM_SAR_d1<-RM_SAR_rent
+Vegades<-c(1:22)
+RM_SAR_d1<-as.data.table(cbind(RM_SAR_d1,Vegades))
+
+RM_SAR_d2<-melt(data = RM_SAR_d1,id.vars=c("Vegades"), measure.vars = noms)
+colnames(RM_SAR_d2)<-c("Vegades","Empresa","Comissions")
+
+dp <- ggplot()
+
+dp<- dp + geom_line(data=RM_SAR_d2  ,  aes(x=Vegades, y=Comissions, group=Empresa, color=Empresa))
+
+dp
+```
+
+#### Per columnes
+
+```{r}
+
+CM_SAR_r<-colMeans(SAR_r[[1]], dims = 1)
+CM_SAR_rc<-colMeans(SAR_rc[[1]], dims = 1)
+for(i in 2:29){
+  CM_SAR_r<-cbind(CM_SAR_r,colMeans(SAR_r[[i]]))
+  CM_SAR_rc<-cbind(CM_SAR_rc,colMeans(SAR_rc[[i]]))
+}
+CM_SAR_rent<-CM_SAR_rc-CM_SAR_r
+CM_SAR_rent<-1-exp(CM_SAR_rent)
+```
+
+```{r}
+ #CM_SAR_d
+colnames(CM_SAR_rent)<-noms
+CM_SAR_d1<-CM_SAR_rent
+Acceleracio<-c(1:20)*0.002
+CM_SAR_d1<-as.data.table(cbind(CM_SAR_d1,Acceleracio))
+
+CM_SAR_d2<-melt(data = CM_SAR_d1,id.vars=c("Acceleracio"), measure.vars = noms)
+colnames(CM_SAR_d2)<-c("Acceleracio","Empresa","Comissions")
+
+dp <- ggplot()
+
+dp<- dp + geom_line(data=CM_SAR_d2  ,  aes(x=Acceleracio, y=Comissions, group=Empresa, color=Empresa))
+dp
+```
+
+#### Per valor
+
+```{r}
+VM_SAR_r<-c()
+VM_SAR_rc<-c()
+for(i in 1:nrow(SAR_r[[1]])){
+for( j in 1:ncol(SAR_r[[1]])){
+    m<-c()
+    mc<-c()
+    for(k in 1:length(SAR_r)){
+      
+    m<-c(m,SAR_r[[k]][i,j])
+    mc<-c(mc,SAR_rc[[k]][i,j])
+    }
+    VM_SAR_r<-c( VM_SAR_r,mean(m,na.rm = TRUE))
+    VM_SAR_rc<-c( VM_SAR_rc,mean(mc,na.rm = TRUE))
+    }
+}
+VM_SAR_rent<-VM_SAR_rc-VM_SAR_r
+VM_SAR_rent<-1-exp(VM_SAR_rent)
+```
+
+```{r}
+data_VMSAR <- expand.grid( X=c(1:20)*0.002,Y=c(1:22))
+data_VMSAR$a <-VM_SAR_rent
+ data_VMSAR$a[data_VMSAR$a==0]<-NA
+colnames(data_VMSAR)<-c("Acceleració","Vegades","Comissions")
+ggplot(data_VMSAR, aes(x=Acceleració, y=Vegades, fill= Comissions)) + 
+  geom_tile()+
+  
+   scale_fill_viridis(discrete=FALSE,option = "C") +
+theme(
+    legend.position = "right",
+  ) +
+  xlab("Acceleració") +
+  ylab("Vegades")
+
+```
